@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { login as loginBackend } from "@/lib/backend/auth";
+import { normalizeError } from "@/lib/backend/client";
+
 export default function LoginPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -14,18 +15,18 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
 
   async function logIn() {
+    // Required-field gate: block the backend call until both fields are filled.
     if (!email.trim() || !password) {
       setMessage("Enter your email and password.");
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
-      setMessage(error.message);
+    try {
+      await loginBackend(email.trim(), password);
+    } catch (err) {
+      // On a backend rejection of the credentials (Req 3.7) show an
+      // authentication error and retain the entered email value in the form.
+      setMessage(normalizeError(err).message);
       return;
     }
 

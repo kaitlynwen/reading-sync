@@ -1,3 +1,5 @@
+import { BentoCard, MonogramAvatar } from "@/components/bento";
+import { toTrackPercent } from "@/lib/bento";
 import type { Member, ReadingSession } from "../types";
 
 type ProgressListProps = {
@@ -19,43 +21,61 @@ export default function ProgressList({
   getMemberProgress,
 }: ProgressListProps) {
   const progressLabel = getProgressLabel(currentSession?.progress_type);
+  const total = currentSession?.total_chapters ?? 0;
 
   return (
-    <section className="py-8">
-      <h2 className="text-xl font-semibold">Everyone</h2>
+    <BentoCard as="section" className="flex flex-col gap-5">
+      <h2 className="font-serif text-xl font-semibold text-text-primary">
+        Everyone
+      </h2>
 
-      <div className="mt-6 divide-y">
+      {/* Per-member progress list (Req 13.7 — preserved behavior). */}
+      <ul className="flex flex-col gap-4">
         {members.map((member) => {
           const progress = getMemberProgress(member.user_id);
-          const total = currentSession?.total_chapters ?? 0;
-          const percent = total > 0 ? (progress / total) * 100 : 0;
+          const percent = toTrackPercent(progress, total);
 
           return (
-            <div key={member.user_id} className="py-4">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{member.display_name}</span>
+            <li key={member.user_id} className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-sans text-sm font-medium text-text-primary">
+                  <MonogramAvatar
+                    name={member.display_name}
+                    colorKey={member.user_id}
+                    size={24}
+                  />
+                  {member.display_name}
+                </span>
 
                 {currentSession ? (
-                  <span className="text-gray-500">
+                  <span
+                    data-numeric
+                    className="font-sans text-sm tabular-nums text-text-secondary"
+                  >
                     {progress} / {total} {progressLabel}
                   </span>
                 ) : (
-                  <span className="text-gray-500">No book</span>
+                  <span className="font-sans text-sm text-text-secondary">
+                    No book
+                  </span>
                 )}
               </div>
 
               {currentSession && (
-                <div className="mt-3 h-2 rounded-full bg-gray-200">
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-[var(--radius-pill)] bg-bg-surface-muted"
+                  aria-hidden
+                >
                   <div
-                    className="h-2 rounded-full bg-black"
+                    className="h-full rounded-[var(--radius-pill)] bg-bg-rail"
                     style={{ width: `${percent}%` }}
                   />
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
-    </section>
+      </ul>
+    </BentoCard>
   );
 }

@@ -2,15 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-
-type ActiveSession = {
-  id: string;
-};
+import AuthGuard from "@/components/AuthGuard";
+import { currentUser } from "@/lib/backend/auth";
+import { gateJoinGroup } from "@/lib/backend/validation";
+import { joinGroup as joinGroupOp } from "@/lib/backend/groups";
 
 export default function JoinGroupPage() {
-  const supabase = createClient();
+  // Gate joining a group behind an authenticated session (Req 3.9).
+  return (
+    <AuthGuard>
+      <JoinGroup />
+    </AuthGuard>
+  );
+}
+
+function JoinGroup() {
   const router = useRouter();
 
   const [inviteCode, setInviteCode] = useState("");
@@ -18,75 +25,34 @@ export default function JoinGroupPage() {
   const [message, setMessage] = useState("");
 
   async function joinGroup() {
-    if (!inviteCode.trim() || !displayName.trim()) {
-      setMessage("Enter an invite code and display name.");
+    // Client-side gate (Req 4.7): block submission when the trimmed invite code
+    // or display name is empty, without a backend round-trip.
+    const gate = gateJoinGroup(inviteCode, displayName);
+    if (!gate.ok) {
+      setMessage(gate.message);
       return;
     }
 
     setMessage("Joining group...");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    // Resolve the authenticated identity from the Auth_Service (Req 4.6).
+    const { userId } = currentUser();
+    if (!userId) {
       setMessage("You need to be logged in first.");
       return;
     }
 
-    const { data: group, error: groupError } = await supabase
-      .from("groups")
-      .select("id, name")
-      .eq("invite_code", inviteCode.trim().toUpperCase())
-      .single();
-
-    if (groupError || !group) {
-      setMessage("No group found with that invite code.");
-      return;
+    // Join via the orchestration helper. It looks up the group by code (no
+    // match → message, Req 4.8), avoids a duplicate membership while still
+    // navigating when already a member (Req 4.9), adds membership otherwise
+    // (Req 4.6), and seeds a zeroed progress record when a session is active
+    // (Req 4.10). On success navigate; on failure show the message.
+    const result = await joinGroupOp(userId, inviteCode, displayName);
+    if (result.ok) {
+      router.push(`/group/${result.groupId}`);
+    } else {
+      setMessage(result.message);
     }
-
-    const { error: memberError } = await supabase
-      .from("group_members")
-      .insert({
-        group_id: group.id,
-        user_id: user.id,
-        display_name: displayName.trim(),
-      });
-
-    if (memberError) {
-      setMessage(memberError.message);
-      return;
-    }
-
-    const { data: activeSession, error: sessionError } = await supabase
-      .from("reading_sessions")
-      .select("id")
-      .eq("group_id", group.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (sessionError) {
-      setMessage(sessionError.message);
-      return;
-    }
-
-    if (activeSession) {
-      const { error: progressError } = await supabase
-        .from("progress")
-        .insert({
-          reading_session_id: (activeSession as ActiveSession).id,
-          user_id: user.id,
-          chapter_completed: 0,
-        });
-
-      if (progressError) {
-        setMessage(progressError.message);
-        return;
-      }
-    }
-
-    router.push(`/group/${group.id}`);
   }
 
   return (

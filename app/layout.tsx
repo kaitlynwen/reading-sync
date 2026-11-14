@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import OneSignalProvider from "@/components/OneSignalProvider";
+import AppBootstrap from "@/components/AppBootstrap";
+import BackendSetup from "@/components/BackendSetup";
+import CommandPalette from "@/components/CommandPalette";
+import PlatformClass from "@/components/PlatformClass";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,8 +42,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <OneSignalProvider />
-        {children}
+        <PlatformClass />
+        <AppBootstrap>
+          <BackendSetup>{children}</BackendSetup>
+          {/* Global Cmd/Ctrl+K command palette (task 14.5). Mounted once at the
+              root so the accelerator works from any screen. */}
+          <CommandPalette />
+        </AppBootstrap>
       </body>
     </html>
   );

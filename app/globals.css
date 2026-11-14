@@ -1,26 +1,169 @@
 @import "tailwindcss";
 
+/*
+ * Warm Editorial Bento design-token foundation.
+ *
+ * This is the single shared stylesheet that declares every semantic Design_Token
+ * named in `.kiro/steering/ui-design.md` exactly once. No other stylesheet may
+ * redeclare these tokens. The light-theme values live in `:root`; the dark
+ * "Cozy Nightstand" values live under `[data-theme="dark"]`.
+ *
+ * Authoritative source of all values: `.kiro/steering/ui-design.md`.
+ */
+
+/* Editorial serif + UI sans-serif typefaces (ui-design.md §3). */
+@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces & Backgrounds (ui-design.md §2) */
+  --bg-app: #faf7f2;
+  --bg-surface: #ffffff;
+  --bg-surface-muted: #f3efe6;
+  --bg-rail: #1c1b20;
+
+  /* Pastel Bento Accents (ui-design.md §2) */
+  --accent-peach: #fadcd9;
+  --accent-sage: #dcece3;
+  --accent-lavender: #e5dff5;
+  --accent-butter: #f9eccb;
+  --accent-sky: #dcebf7;
+
+  /* Typography & Borders (ui-design.md §2) */
+  --text-primary: #1c1b20;
+  --text-secondary: #5e5b66;
+  --text-on-dark: #faf7f2;
+  --border-subtle: rgba(28, 27, 32, 0.08);
+  --border-strong: rgba(28, 27, 32, 0.18);
+
+  /* Typeface stacks (ui-design.md §3) */
+  --font-serif: "Newsreader", "Fraunces", "Lora", "Georgia", serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+
+  /* Shape & Radii (ui-design.md §4) */
+  --radius-card: 18px;
+  --radius-inner: 12px;
+  --radius-pill: 9999px;
+
+  /* Spacing — grid rhythm & card padding (ui-design.md §4) */
+  --space-grid-gap-min: 16px;
+  --space-grid-gap-max: 20px;
+  --space-card-padding-min: 20px;
+  --space-card-padding-max: 24px;
+
+  /* Elevation (ui-design.md §4 & §5) */
+  --shadow-float: 0 4px 16px rgba(28, 27, 32, 0.04);
+  --shadow-spine: -3px 4px 10px rgba(0, 0, 0, 0.12);
 }
 
+/* Dark "Cozy Nightstand" theme (ui-design.md §7). */
+[data-theme="dark"] {
+  /* Dark Surfaces & Backgrounds */
+  --bg-app: #151418;
+  --bg-surface: #1e1d23;
+  --bg-surface-muted: #27252e;
+  --bg-rail: #100f13;
+
+  /* Muted Pastel Bento Accents (Dark Mode) */
+  --accent-peach: #3d2829;
+  --accent-sage: #22332b;
+  --accent-lavender: #2c273d;
+  --accent-butter: #38301e;
+  --accent-sky: #21303d;
+
+  /* Dark Typography & Borders */
+  --text-primary: #f4efe6;
+  --text-secondary: #a6a0ad;
+  --text-on-accent: #f8f4ec;
+  --border-subtle: rgba(244, 239, 230, 0.08);
+  --border-strong: rgba(244, 239, 230, 0.18);
+}
+
+/* Expose tokens as Tailwind theme values so utilities can reference them. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-bg-app: var(--bg-app);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-muted: var(--bg-surface-muted);
+  --color-bg-rail: var(--bg-rail);
+  --color-accent-peach: var(--accent-peach);
+  --color-accent-sage: var(--accent-sage);
+  --color-accent-lavender: var(--accent-lavender);
+  --color-accent-butter: var(--accent-butter);
+  --color-accent-sky: var(--accent-sky);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-on-dark: var(--text-on-dark);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Editorial serif for book titles, club names, and saved quotes (ui-design.md §3). */
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/*
+ * Tabular numerals for all progress numbers, percentages, and counters so
+ * progress bars never jitter when updated (ui-design.md §3, Req 12.4 / 13.5).
+ */
+.tabular-nums,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Custom thin scrollbars for Windows builds (task 14.5; steering §6, "Desktop
+ * Ergonomics"). Scoped to `[data-platform="win32"]` — set on <html> by
+ * `components/PlatformClass.tsx` — so Windows never shows the harsh default
+ * system scrollbars while macOS/Linux keep their native overlay scrollbars.
+ *
+ * 6px wide with a warm translucent thumb drawn from the primary-ink token so
+ * the color follows the active (light/dark) theme instead of a hardcoded hex
+ * (steering §12, Implementation Hygiene).
+ */
+[data-platform="win32"] {
+  /* Firefox-based engines: thin track + warm translucent thumb. */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-primary) 28%, transparent)
+    transparent;
+}
+
+[data-platform="win32"] *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[data-platform="win32"] *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-platform="win32"] *::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-primary) 28%, transparent);
+}
+
+[data-platform="win32"] *::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-primary) 42%, transparent);
+}
+
+/*
+ * Command palette overlay fade-in (task 14.5; steering §8 — modals/command
+ * palette use 200ms ease-out). The keyframe is applied via the
+ * `motion-safe:` variant in the component, so reduced-motion users get an
+ * instant, non-animated overlay (steering §8, "Reduced Motion").
+ */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

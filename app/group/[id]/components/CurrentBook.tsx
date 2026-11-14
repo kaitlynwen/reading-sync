@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  BentoCard,
+  BookCover,
+  PillButton,
+  ProgressTrack,
+  Stepper,
+} from "@/components/bento";
+import type { ProgressTrackMember } from "@/components/bento";
+import { toTrackPercent } from "@/lib/bento";
 import type { ReadingSession, Member } from "../types";
 
 type CurrentBookProps = {
@@ -54,17 +63,22 @@ export default function CurrentBook({
   }, [myProgress]);
 
   if (!currentSession) {
+    // Empty state preserves the "start reading" entry point (steering §9).
     return (
-      <section className="border-b py-8">
-        <p className="text-gray-600">No active book.</p>
+      <BentoCard as="section" accent="peach" className="flex flex-col gap-4">
+        <p className="font-serif text-lg text-text-primary">
+          Your club&apos;s shelf is empty — pick your next read together.
+        </p>
 
-        <Link
-          href={`/group/${groupId}/create-session`}
-          className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-white"
-        >
-          Start Reading
-        </Link>
-      </section>
+        <div>
+          <Link
+            href={`/group/${groupId}/create-session`}
+            className="inline-flex items-center justify-center rounded-[var(--radius-pill)] bg-bg-rail px-4 py-2 font-sans text-sm font-medium text-text-on-dark transition-[opacity] duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-primary"
+          >
+            Start Reading
+          </Link>
+        </div>
+      </BentoCard>
     );
   }
 
@@ -80,7 +94,7 @@ export default function CurrentBook({
       getMemberProgress(member.user_id) >= currentSession.total_chapters
   );
 
-  const percent = (myProgress / currentSession.total_chapters) * 100;
+  const myPercent = toTrackPercent(myProgress, currentSession.total_chapters);
 
   const lowestProgress =
     members.length > 0
@@ -102,88 +116,122 @@ export default function CurrentBook({
     (member) => getMemberProgress(member.user_id) < readyThreshold
   );
 
-  return (
-    <section className="border-b py-8">
-      <div className="flex gap-4">
-        {currentSession.cover_url && (
-          <img
-            src={currentSession.cover_url}
-            alt={currentSession.book_title}
-            className="h-28 w-20 rounded object-cover"
-          />
-        )}
+  // The shared horizontal track spans 0%–100% of the book, with each member's
+  // avatar pinned at their completed-count percentage (Req 13.4).
+  const trackMembers: ProgressTrackMember[] = members.map((member) => ({
+    id: member.user_id,
+    name: member.display_name,
+    completed: getMemberProgress(member.user_id),
+  }));
 
-        <div>
-          <p className="text-sm text-gray-500">Current Book</p>
-          <h2 className="mt-1 text-2xl font-semibold">
+  // The vertical dashed club-target marker sits at the shared goal when one is
+  // set, otherwise at the book's end (Req 13.4).
+  const sharedGoal =
+    currentSession.goal_type === "target" &&
+    currentSession.goal_amount !== null
+      ? currentSession.goal_amount
+      : null;
+  const targetMarker = sharedGoal ?? currentSession.total_chapters;
+
+  return (
+    <BentoCard as="section" className="flex flex-col gap-6">
+      {/* Hero: book cover at 2:3 (or placeholder) beside the title (Req 13.2, 13.3). */}
+      <div className="flex gap-5">
+        <BookCover
+          src={currentSession.cover_url}
+          title={currentSession.book_title}
+          width={96}
+          className="shrink-0"
+        />
+
+        <div className="flex flex-col gap-1">
+          <p className="font-sans text-xs font-semibold uppercase tracking-widest text-text-secondary">
+            Current Book
+          </p>
+          <h2 className="font-serif text-2xl font-semibold text-text-primary">
             {currentSession.book_title}
           </h2>
         </div>
       </div>
 
       {everyoneFinished ? (
-        <div className="mt-6">
-          <p className="text-lg font-semibold">
+        <div className="flex flex-col gap-3">
+          <p className="font-serif text-lg font-semibold text-text-primary">
             🎉 Everyone finished this book.
           </p>
-          <p className="mt-2 text-gray-600">Ready to start the next one.</p>
+          <p className="font-sans text-text-secondary">
+            Ready to start the next one.
+          </p>
 
-          <button
-            onClick={onDeleteBook}
-            className="mt-5 w-full rounded-lg bg-black py-3 text-white"
-          >
+          <PillButton onClick={onDeleteBook} className="w-full">
             Start New Book
-          </button>
+          </PillButton>
         </div>
       ) : (
         <>
-          <div className="mt-6">
-            <div className="mb-2 flex justify-between text-sm">
+          {/* Your own progress summary, rendered with tabular numerals (Req 13.5). */}
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between font-sans text-sm text-text-primary">
               <span>Your progress</span>
-              <span>
+              <span data-numeric className="tabular-nums text-text-secondary">
                 {myProgress} / {currentSession.total_chapters} {pluralNoun}
               </span>
             </div>
 
-            <div className="h-2 rounded-full bg-gray-200">
+            <div
+              className="h-1.5 w-full overflow-hidden rounded-[var(--radius-pill)] bg-bg-surface-muted"
+              aria-hidden
+            >
               <div
-                className="h-2 rounded-full bg-black"
-                style={{ width: `${percent}%` }}
+                className="h-full rounded-[var(--radius-pill)] bg-bg-rail"
+                style={{ width: `${myPercent}%` }}
               />
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border p-4">
-            <p className="text-sm font-semibold">
-              Ready for {capitalize(noun)} {groupNextProgress}
+          {/* Single shared horizontal track: every member avatar + dashed
+              club-target marker at the shared goal (Req 13.4). */}
+          <div className="flex flex-col gap-3">
+            <p className="font-sans text-sm font-semibold text-text-primary">
+              Ready for {capitalize(noun)}{" "}
+              <span data-numeric className="tabular-nums">
+                {groupNextProgress}
+              </span>
             </p>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <ProgressTrack
+              members={trackMembers}
+              goal={currentSession.total_chapters}
+              targetMarker={targetMarker}
+              valueText={`${Math.round(myPercent)}% complete`}
+            />
+
+            <div className="flex flex-wrap gap-2">
               {readyMembers.map((member) => (
-                <div
+                <span
                   key={member.user_id}
-                  className="rounded-full bg-black px-3 py-1 text-sm text-white"
+                  className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-bg-rail px-3 py-1 font-sans text-sm text-text-on-dark"
                 >
                   ● {member.display_name}
-                </div>
+                </span>
               ))}
 
               {waitingMembers.map((member) => (
-                <div
+                <span
                   key={member.user_id}
-                  className="rounded-full border px-3 py-1 text-sm text-gray-500"
+                  className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] border border-border-subtle px-3 py-1 font-sans text-sm text-text-secondary"
                 >
                   ○ {member.display_name}
-                </div>
+                </span>
               ))}
             </div>
 
             {waitingMembers.length === 0 ? (
-              <p className="mt-3 text-sm text-green-600">
+              <p className="font-sans text-sm text-text-primary">
                 🎉 Everyone is ready!
               </p>
             ) : (
-              <p className="mt-3 text-sm text-gray-500">
+              <p className="font-sans text-sm text-text-secondary">
                 Waiting on {waitingMembers.length}{" "}
                 {waitingMembers.length === 1 ? "reader" : "readers"}.
               </p>
@@ -191,84 +239,93 @@ export default function CurrentBook({
           </div>
 
           {isPageMode ? (
-            <div className="mt-6 rounded-xl border p-4">
-              <p className="text-sm font-semibold">Update your page</p>
+            // Page mode: frictionless inline stepper + explicit save, no
+            // navigation away (Req 13.6).
+            <BentoCard tone="inner" padding="compact" className="flex flex-col gap-3">
+              <p className="font-sans text-sm font-semibold text-text-primary">
+                Update your page
+              </p>
 
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  onClick={() => setSliderValue(Math.max(0, sliderValue - 1))}
-                  className="rounded-lg border px-4 py-3 text-lg"
-                >
-                  -
-                </button>
-
-                <input
-                  type="number"
-                  min="0"
-                  max={currentSession.total_chapters}
+              <div className="flex items-center justify-between gap-3">
+                <Stepper
                   value={sliderValue}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setSliderValue(value);
-                  }}
-                  className="w-full rounded-lg border p-3 text-center text-lg font-semibold"
-                />
-
-                <button
-                  onClick={() =>
+                  unitLabel="pages"
+                  ariaLabel="Update your page"
+                  canDecrement={sliderValue > 0}
+                  canIncrement={sliderValue < currentSession.total_chapters}
+                  onDecrement={() =>
+                    setSliderValue(Math.max(0, sliderValue - 1))
+                  }
+                  onIncrement={() =>
                     setSliderValue(
                       Math.min(currentSession.total_chapters, sliderValue + 1)
                     )
                   }
-                  className="rounded-lg border px-4 py-3 text-lg"
+                />
+
+                <span
+                  data-numeric
+                  className="font-sans text-sm tabular-nums text-text-secondary"
                 >
-                  +
-                </button>
+                  Page {sliderValue} / {currentSession.total_chapters}
+                </span>
               </div>
 
-              <p className="mt-2 text-center text-sm text-gray-500">
-                Page {sliderValue} / {currentSession.total_chapters}
-              </p>
-
-              <button
+              <PillButton
                 onClick={() => onSetProgress(sliderValue)}
-                className="mt-4 w-full rounded-lg bg-black py-3 text-white"
+                className="w-full"
               >
                 Save Progress
-              </button>
-            </div>
+              </PillButton>
+            </BentoCard>
           ) : (
-            <>
-              <button
-                onClick={onCompleteChapter}
-                disabled={isFinished}
-                className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300"
-              >
-                {isFinished
-                  ? "Waiting for everyone else"
-                  : `Complete Next ${capitalize(noun)}`}
-              </button>
+            // Chapter/unit mode: a single-interaction inline stepper completes
+            // or undoes the next unit without navigating away (Req 13.6).
+            <BentoCard tone="inner" padding="compact" className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col">
+                  <span className="font-sans text-sm font-semibold text-text-primary">
+                    {capitalize(pluralNoun)} read
+                  </span>
+                  <span
+                    data-numeric
+                    className="font-sans text-xs tabular-nums text-text-secondary"
+                  >
+                    {myProgress} / {currentSession.total_chapters}
+                  </span>
+                </div>
 
-              <button
-                onClick={onUndoChapter}
-                disabled={!canUndo}
-                className="mt-3 w-full rounded-lg border py-3 text-sm disabled:text-gray-300"
-              >
-                Undo Last {capitalize(noun)}
-              </button>
-            </>
+                <Stepper
+                  value={myProgress}
+                  ariaLabel={`Update ${pluralNoun} read`}
+                  canDecrement={canUndo}
+                  canIncrement={!isFinished}
+                  onDecrement={onUndoChapter}
+                  onIncrement={onCompleteChapter}
+                />
+              </div>
+
+              {isFinished && (
+                <p className="font-sans text-sm text-text-secondary">
+                  Waiting for everyone else.
+                </p>
+              )}
+            </BentoCard>
           )}
 
           <button
+            type="button"
             onClick={onDeleteBook}
-            className="mt-3 text-sm text-gray-500 underline"
+            className="self-start font-sans text-sm text-text-secondary underline"
           >
             Delete / Replace Book
           </button>
         </>
       )}
 
-      {message && <p className="mt-3 text-sm text-red-600">{message}</p>}
-    </section>
+      {message && (
+        <p className="font-sans text-sm text-text-primary">{message}</p>
+      )}
+    </BentoCard>
   );
 }
