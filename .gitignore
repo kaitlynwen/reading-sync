@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# migration run state (id-remap table — local to each operator's run)
+/migration/.remap.json

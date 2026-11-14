@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { createAccount as createAccountBackend } from "@/lib/backend/auth";
+import { gateCreateAccount } from "@/lib/backend/validation";
+import { normalizeError } from "@/lib/backend/client";
+
 export default function CreateAccountPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -15,23 +17,22 @@ export default function CreateAccountPage() {
   const [message, setMessage] = useState("");
 
   async function createAccount() {
-    if (!email.trim() || !password || !confirmPassword) {
-      setMessage("Fill out all fields.");
+    // Client-side gate (Req 3.2–3.4): required fields, single-"@" email, and
+    // password/confirmation match are all enforced by the shared validation
+    // helper before any request reaches the backend. A failed gate shows the
+    // message and performs no backend call.
+    const gate = gateCreateAccount(email, password, confirmPassword);
+    if (!gate.ok) {
+      setMessage(gate.message);
       return;
     }
 
-    if (password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
-
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
-      setMessage(error.message);
+    try {
+      await createAccountBackend(email.trim(), password);
+    } catch (err) {
+      // On backend rejection (e.g. email already in use, Req 3.5) show the
+      // error and retain the entered email and password values in the form.
+      setMessage(normalizeError(err).message);
       return;
     }
 

@@ -2,15 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-
-function generateInviteCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
+import AuthGuard from "@/components/AuthGuard";
+import { currentUser } from "@/lib/backend/auth";
+import { gateCreateGroup } from "@/lib/backend/validation";
+import { createGroup as createGroupOp } from "@/lib/backend/groups";
 
 export default function CreateGroupPage() {
-  const supabase = createClient();
+  // Gate group creation behind an authenticated session (Req 3.9).
+  return (
+    <AuthGuard>
+      <CreateGroup />
+    </AuthGuard>
+  );
+}
+
+function CreateGroup() {
   const router = useRouter();
 
   const [groupName, setGroupName] = useState("");
@@ -18,54 +25,34 @@ export default function CreateGroupPage() {
   const [message, setMessage] = useState("");
 
   async function createGroup() {
-    if (!groupName.trim() || !displayName.trim()) {
-      setMessage("Enter a group name and your display name.");
+    // Client-side gate (Req 4.4): block submission when the trimmed group name
+    // or display name is empty, without a backend round-trip.
+    const gate = gateCreateGroup(groupName, displayName);
+    if (!gate.ok) {
+      setMessage(gate.message);
       return;
     }
 
     setMessage("Creating group...");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    // Resolve the authenticated identity from the Auth_Service (Req 4.1). An
+    // absent session should not normally reach here (AuthGuard gates the
+    // screen), but guard defensively and surface a message rather than throw.
+    const { userId } = currentUser();
+    if (!userId) {
       setMessage("You need to be logged in first.");
       return;
     }
 
-    const inviteCode = generateInviteCode();
-
-    const { data: group, error: groupError } = await supabase
-      .from("groups")
-      .insert({
-        name: groupName.trim(),
-        invite_code: inviteCode,
-        created_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (groupError || !group) {
-      setMessage(groupError?.message || "Could not create group.");
-      return;
+    // Create the group + creator membership via the orchestration helper. The
+    // invite code is backend-generated (Req 4.2); on success navigate to the
+    // group (Req 4.5), on failure show the error and do not navigate (Req 4.3).
+    const result = await createGroupOp(userId, groupName, displayName);
+    if (result.ok) {
+      router.push(`/group/${result.groupId}`);
+    } else {
+      setMessage(result.message);
     }
-
-    const { error: memberError } = await supabase
-      .from("group_members")
-      .insert({
-        group_id: group.id,
-        user_id: user.id,
-        display_name: displayName.trim(),
-      });
-
-    if (memberError) {
-      setMessage(memberError.message);
-      return;
-    }
-
-    router.push(`/group/${group.id}`);
   }
 
   return (

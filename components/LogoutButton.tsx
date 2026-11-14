@@ -1,14 +1,17 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+import { logout } from "@/lib/backend/auth";
+
 export default function LogoutButton() {
-  const supabase = createClient();
   const router = useRouter();
 
   async function logOut() {
-    await supabase.auth.signOut();
+    // End the authenticated session, then navigate to the login screen. The
+    // navigation happens immediately after the session is cleared, well within
+    // the 2-second bound of Req 3.8.
+    await logout();
     router.push("/login");
   }
 

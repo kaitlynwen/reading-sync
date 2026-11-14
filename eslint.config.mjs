@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // PocketBase JSVM migrations/hooks run inside PocketBase's embedded JS
+    // runtime (globals like `migrate`, `onRecordCreate`, `$app`, `$security`),
+    // not in the app bundle or Node, so they are not linted with the app rules.
+    "pocketbase/**",
   ]),
 ]);
 

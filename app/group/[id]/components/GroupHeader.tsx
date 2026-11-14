@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BentoCard, PillButton } from "@/components/bento";
 
 type GroupHeaderProps = {
   name: string;
@@ -25,39 +26,50 @@ export default function GroupHeader({
     return () => clearTimeout(timer);
   }, [copied]);
 
+  // Preserve the existing copy-invite behavior (Req 13.7): delegate to the
+  // handler, then surface the transient "copied" confirmation.
   function handleCopy() {
     onCopyInvite();
     setCopied(true);
   }
 
   return (
-    <section className="border-b pb-8">
-      <h1 className="text-4xl font-bold">{name}</h1>
+    <BentoCard as="section" className="flex flex-col gap-5">
+      {/* Club name in the editorial serif (steering §3). */}
+      <h1 className="font-serif text-4xl font-semibold leading-tight text-text-primary">
+        {name}
+      </h1>
 
-      <div className="mt-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+      <div className="flex flex-col gap-3">
+        <p className="font-sans text-xs font-semibold uppercase tracking-widest text-text-secondary">
           Invite Code
         </p>
 
-        <div className="mt-2 flex items-center justify-between rounded-xl border p-4">
-          <span className="font-mono text-3xl font-bold tracking-[0.25em]">
+        {/* Inner sub-card holding the code + copy control (steering §4). */}
+        <BentoCard
+          tone="inner"
+          padding="compact"
+          className="flex items-center justify-between gap-4 bg-bg-surface-muted"
+        >
+          <span
+            data-numeric
+            className="font-mono text-2xl font-bold tracking-[0.25em] tabular-nums text-text-primary sm:text-3xl"
+          >
             {inviteCode}
           </span>
 
-          <button
+          <PillButton
+            variant={copied ? "soft" : "solid"}
             onClick={handleCopy}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors ${
-              copied ? "bg-green-600" : "bg-black hover:bg-gray-800"
-            }`}
           >
             {copied ? "✓ Copied" : "Copy"}
-          </button>
-        </div>
+          </PillButton>
+        </BentoCard>
 
-        <p className="mt-3 text-sm text-gray-500">
-          Share this code with anyone you'd like to invite to this group.
+        <p className="font-sans text-sm text-text-secondary">
+          Share this code with anyone you&apos;d like to invite to this group.
         </p>
       </div>
-    </section>
+    </BentoCard>
   );
 }
